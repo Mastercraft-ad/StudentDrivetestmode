@@ -70,6 +70,18 @@ export interface UserActivity {
   createdAt: string;
 }
 
+export interface LearningPath {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  targetDate?: string;
+  tasks: any[];
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // API functions
 export const api = {
   // Profile
@@ -172,7 +184,12 @@ export const api = {
   },
 
   // Learning Paths
-  async createLearningPath(goals: string[], targetDate: string, currentLevel: string): Promise<any> {
+  async getUserLearningPaths(): Promise<LearningPath[]> {
+    const res = await apiRequest("GET", "/api/learning-paths");
+    return res.json();
+  },
+
+  async createLearningPath(goals: string[], targetDate: string, currentLevel: string): Promise<LearningPath> {
     const res = await apiRequest("POST", "/api/learning-paths", {
       goals,
       targetDate,
