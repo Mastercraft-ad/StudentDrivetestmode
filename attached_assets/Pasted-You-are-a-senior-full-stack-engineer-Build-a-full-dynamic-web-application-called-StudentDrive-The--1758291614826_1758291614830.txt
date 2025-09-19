@@ -1,0 +1,165 @@
+You are a senior full-stack engineer.
+Build a full dynamic web application called StudentDrive.
+The stack:
+
+Frontend: React (Vite) + TypeScript + Tailwind CSS + shadcn/ui
+
+Backend: Node.js + Express
+
+Database: PostgreSQL (with Prisma ORM)
+
+Auth: JWT-based authentication (Students, Institutions, Admins)
+
+Deployment-ready (Replit + Docker)
+
+🔑 Core Features to Implement
+1. User Roles & Onboarding
+
+Roles: Student, Institution/School, Admin.
+
+Onboarding questionnaire after signup:
+
+Program (e.g., Software Engineering)
+
+Institution (select from DB)
+
+Current Level
+
+Discovery source (How did you discover us?)
+
+Goals
+
+Store responses and link them to user profiles dynamically.
+
+2. Content Library
+
+Upload/download notes (PDF, PPT, Images).
+
+Students can contribute notes.
+
+Content must be rated/reviewed by peers.
+
+Repository of past exam papers & exam-style questions.
+
+3. AI Tools (Dynamic Processing)
+
+Flashcard generator (from uploaded notes).
+
+Quiz/Test generator (from notes, videos, YouTube links).
+
+Summarizer.
+
+Mind map / visual organizer.
+(Integrate with OpenAI API or HuggingFace — no mock data).
+
+4. Assessment & Practice
+
+Timed mock exams.
+
+Performance tracking & analytics.
+
+Weak topic detection with targeted recommendations.
+
+5. Learning Paths & Scheduling
+
+Students set target exam dates.
+
+System creates daily/weekly tasks.
+
+Spaced repetition reminders for revision.
+
+6. Peer Review
+
+Students can rate notes, quizzes, and exams.
+
+7. Monetization
+
+Free vs Premium tiers.
+
+Subscription plans (monthly, semester, yearly).
+
+Upload-for-access credits.
+
+Institutional licensing deals.
+
+8. Analytics & Feedback
+
+Student dashboard with:
+
+Strengths/Weaknesses
+
+Time spent learning
+
+Feedback after quizzes
+
+Progress toward exam readiness
+
+9. UX/UI/Performance
+
+Fast, intuitive UI.
+
+Optimized for low-bandwidth & mobile-first users.
+
+Dark mode + brand colors:
+
+Primary: #1DB954 (Green)
+
+Dark Navy: #0B1B3C
+
+Light Gray: #F5F6F8
+
+White: #FFFFFF
+
+🎨 Dashboard Layout Structure
+
+The dashboard should have a two-column layout with a sidebar and main content area.
+
+Sidebar (left)
+
+Logo + app name (StudentDrive).
+
+Navigation links: Dashboard, Notes, Mindmaps, Tests, Calendar, Subscription, Settings.
+
+User profile summary (role, email, subscription status).
+
+Main Dashboard (center area)
+
+Welcome Banner: Personalized greeting (“Welcome back, {user.name}”).
+
+Academic Calendar Widget: Active, Upcoming, Important events.
+
+Course Progress Widget: Show enrolled courses with progress bar.
+
+Practice Tests Widget: Latest score, Average score, Generate new test.
+
+Study Tips Widget: List of study tips (active reading, time management, note-taking).
+
+Right Sidebar (quick stats)
+
+Study Analytics: Streak, Learning velocity, Best test score, Monthly activity.
+
+Quick Access Links: Course notes, Tests, Calendar, Subscription, Settings.
+
+Help Center Widget: Contact support.
+
+Card Components
+
+Use shadcn/ui cards with rounded corners, shadows, and consistent padding.
+
+Each widget should be reusable and fed dynamically from backend APIs.
+
+✅ Acceptance Criteria
+
+Fully functional backend + frontend + database connected.
+
+JWT authentication with roles (Student, Institution, Admin).
+
+Dynamic data only (no mock data).
+
+AI-powered features integrated live.
+
+Responsive UI with dashboard layout.
+
+Dockerized for deployment.
+
+⚡ Build the entire StudentDrive MVP app as described, wiring up frontend + backend + database + AI APIs, making it fully dynamic and production-ready with no mock data.
