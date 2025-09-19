@@ -39,18 +39,12 @@ export function CourseProgressWidget() {
     );
   }
 
-  // Mock progress data if no courses with progress
-  const courseProgressData: CourseProgress[] = courses.length > 0 
-    ? courses.map(course => ({
-        name: course.name,
-        progress: course.progress || Math.floor(Math.random() * 100),
-        code: course.code
-      }))
-    : [
-        { name: "Software Engineering", progress: 85 },
-        { name: "Data Structures", progress: 72 },
-        { name: "Database Systems", progress: 91 }
-      ];
+  // Use real course data with actual progress
+  const courseProgressData: CourseProgress[] = courses.map(course => ({
+    name: course.name,
+    progress: course.progress || 0, // Show 0% if no progress data
+    code: course.code
+  }));
 
   return (
     <Card className="transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
@@ -79,8 +73,9 @@ export function CourseProgressWidget() {
         
         {courseProgressData.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            <p className="text-sm">No courses enrolled yet.</p>
-            <p className="text-xs mt-1">Start by enrolling in your first course!</p>
+            <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No courses enrolled yet</p>
+            <p className="text-xs mt-1">Enroll in courses to track your progress!</p>
           </div>
         )}
       </CardContent>
