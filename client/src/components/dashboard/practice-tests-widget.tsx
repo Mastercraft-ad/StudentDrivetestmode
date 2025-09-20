@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export function PracticeTestsWidget() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: analytics } = useQuery({
@@ -26,8 +28,8 @@ export function PracticeTestsWidget() {
         description: "This feature will generate tests from your uploaded notes using AI. Please upload some study materials first.",
       });
       
-      // TODO: Implement AI test generation
-      // const assessment = await api.generateQuiz(selectedContent, 10);
+      // Navigate to tests page to create or take tests
+      setTimeout(() => setLocation("/tests"), 1000);
       
     } catch (error) {
       toast({

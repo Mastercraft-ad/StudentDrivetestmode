@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
 
 export function AiToolsWidget() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [flashcardCount, setFlashcardCount] = useState(10);
@@ -37,7 +39,8 @@ export function AiToolsWidget() {
       });
       setActiveDialog(null);
       setContent("");
-      // TODO: Navigate to flashcards view or show results
+      // Navigate to tests page where flashcards can be reviewed
+      setLocation("/tests");
     },
     onError: (error) => {
       toast({
@@ -58,7 +61,8 @@ export function AiToolsWidget() {
       });
       setActiveDialog(null);
       setContent("");
-      // TODO: Navigate to tests page or start quiz
+      // Navigate to tests page to view the generated quiz
+      setLocation("/tests");
     },
     onError: (error) => {
       toast({
@@ -78,7 +82,8 @@ export function AiToolsWidget() {
       });
       setActiveDialog(null);
       setContent("");
-      // TODO: Show summary or navigate to summaries view
+      // Navigate to notes page where summaries are stored
+      setLocation("/notes");
     },
     onError: (error) => {
       toast({
@@ -98,7 +103,8 @@ export function AiToolsWidget() {
       });
       setActiveDialog(null);
       setContent("");
-      // TODO: Navigate to mind map view
+      // Navigate to notes page where mind maps are accessible
+      setLocation("/notes");
     },
     onError: (error) => {
       toast({

@@ -1,13 +1,40 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { BookOpen } from "lucide-react";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export function WelcomeBanner() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const startStudySessionMutation = useMutation({
+    mutationFn: () => api.createStudySession({
+      duration: 0, // Will be updated when session ends
+      activitiesCompleted: [],
+    }),
+    onSuccess: () => {
+      toast({
+        title: "Study session started! 📚",
+        description: "Time to focus and learn. Good luck!",
+      });
+      // Navigate to notes page to start studying
+      setLocation("/notes");
+    },
+    onError: () => {
+      toast({
+        title: "Failed to start session",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleStartStudySession = () => {
-    // TODO: Implement study session tracking
-    console.log("Starting study session...");
+    startStudySessionMutation.mutate();
   };
 
   return (

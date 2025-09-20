@@ -15,8 +15,10 @@ import {
   Headphones,
   PlayCircle
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function AnalyticsSidebar() {
+  const [, setLocation] = useLocation();
   const { data: analytics, isLoading } = useQuery({
     queryKey: ["/api/analytics"],
     queryFn: () => api.getAnalytics(),
@@ -70,7 +72,7 @@ export function AnalyticsSidebar() {
     {
       label: "Study Calendar",
       icon: Calendar,
-      href: "/calendar",
+      href: "/notes",
     },
     {
       label: "Upgrade Plan",
@@ -99,11 +101,24 @@ export function AnalyticsSidebar() {
 
   const handleQuickAction = (href?: string, action?: string) => {
     if (href) {
-      // TODO: Navigate to the specified route
-      console.log("Navigate to:", href);
+      // Navigate to the specified route using wouter
+      setLocation(href);
     } else if (action) {
-      // TODO: Handle specific actions
-      console.log("Execute action:", action);
+      // Handle specific actions (FAQ, support, tutorials)
+      switch (action) {
+        case "openFAQ":
+          // Open FAQ in a new tab or modal
+          window.open("https://help.replit.com", "_blank");
+          break;
+        case "contactSupport":
+          // Open support contact 
+          window.open("mailto:support@nounstudy.app", "_blank");
+          break;
+        case "openTutorials":
+          // Open tutorials page
+          window.open("https://help.replit.com/tutorials", "_blank");
+          break;
+      }
     }
   };
 

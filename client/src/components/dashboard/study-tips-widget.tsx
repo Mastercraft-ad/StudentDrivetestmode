@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, RotateCcw, BookOpen, Target, Lightbulb } from "lucide-react";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 interface StudyTip {
   id: string;
@@ -52,14 +54,23 @@ const categoryColors = {
 };
 
 export function StudyTipsWidget() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
   const handleViewAllTips = () => {
-    // TODO: Navigate to comprehensive study tips page
-    console.log("Navigate to all study tips");
+    // Navigate to notes page where study guides and tips are available
+    setLocation("/notes");
   };
 
   const handleApplyTip = (tipId: string) => {
-    // TODO: Mark tip as applied or integrate with study planner
-    console.log("Apply tip:", tipId);
+    // Show confirmation that tip has been noted
+    const tip = studyTips.find(t => t.id === tipId);
+    if (tip) {
+      toast({
+        title: "Study tip noted! 📚",
+        description: `Remember to apply: ${tip.title}`,
+      });
+    }
   };
 
   return (

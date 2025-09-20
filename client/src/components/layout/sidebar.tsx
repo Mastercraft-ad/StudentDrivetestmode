@@ -33,7 +33,7 @@ export function Sidebar() {
       badge: "24"
     },
     { 
-      path: "/mindmaps", 
+      path: "/notes", 
       label: "Mind Maps", 
       icon: Brain,
       badge: null
@@ -45,7 +45,7 @@ export function Sidebar() {
       badge: "3"
     },
     { 
-      path: "/calendar", 
+      path: "/notes", 
       label: "Calendar", 
       icon: Calendar,
       badge: null
@@ -57,7 +57,7 @@ export function Sidebar() {
       badge: null
     },
     { 
-      path: "/settings", 
+      path: "/subscription", 
       label: "Settings", 
       icon: Settings,
       badge: null

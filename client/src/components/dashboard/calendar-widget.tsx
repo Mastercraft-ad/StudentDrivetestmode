@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type LearningPath } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isAfter, isBefore, addDays } from "date-fns";
+import { useLocation } from "wouter";
 
 interface CalendarEvent {
   id: string;
@@ -41,6 +42,7 @@ const determineEventType = (date: Date): "urgent" | "due" | "upcoming" => {
 };
 
 export function CalendarWidget() {
+  const [, setLocation] = useLocation();
   const { data: learningPaths = [], isLoading: loadingPaths } = useQuery({
     queryKey: ["/api/learning-paths"],
     queryFn: () => api.getUserLearningPaths(),
@@ -136,8 +138,8 @@ export function CalendarWidget() {
   };
 
   const handleViewFullCalendar = () => {
-    // Navigate to a calendar or schedule page (to be implemented)
-    window.location.href = "/calendar";
+    // Navigate to notes page until calendar page is implemented
+    setLocation("/notes");
   };
 
   return (
