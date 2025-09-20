@@ -9,21 +9,39 @@ import fs from "fs";
 import { generateFlashcards, generateQuiz, summarizeContent, generateMindMap, generateStudyPlan } from "./services/openai";
 import Stripe from "stripe";
 
-// File upload configuration
+// File upload configuration for Note Library - only PDF, PPTX, DOC, DOCX allowed
 const upload = multer({
   dest: 'uploads/',
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit for Note Library
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.pdf', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.txt'];
+    const allowedTypes = ['.pdf', '.pptx', '.doc', '.docx'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type'));
+      cb(new Error('Invalid file type. Only PDF, PPTX, DOC, and DOCX files are allowed.'));
     }
   }
+});
+
+// Validation schemas
+const contentUploadSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  type: z.enum(["pdf", "pptx", "doc", "docx"]),
+  institutionId: z.string().uuid().optional(),
+  programmeId: z.string().uuid().optional(),
+  isPublic: z.string().transform(val => val !== 'false')
+});
+
+const contentUpdateSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  institutionId: z.string().uuid().optional(),
+  programmeId: z.string().uuid().optional(),
+  isPublic: z.boolean().optional()
 });
 
 // Stripe setup
@@ -93,6 +111,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Programme routes
+  app.get("/api/programmes", async (req, res) => {
+    try {
+      const programmes = await storage.getProgrammes();
+      res.json(programmes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch programmes" });
+    }
+  });
+
+  app.get("/api/institutions/:institutionId/programmes", async (req, res) => {
+    try {
+      const programmes = await storage.getProgrammesByInstitution(req.params.institutionId);
+      res.json(programmes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch programmes" });
+    }
+  });
+
+  // Seed data endpoint for Nigerian universities and programmes (development only)
+  app.post("/api/seed-nigerian-data", requireAuth, async (req, res) => {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Seeding is not allowed in production" });
+    }
+    try {
+      // Check if data already exists
+      const existingInstitutions = await storage.getInstitutions();
+      if (existingInstitutions.length > 0) {
+        return res.json({ message: "Data already seeded", count: existingInstitutions.length });
+      }
+
+      const nigerianUniversities = [
+        { name: "University of Lagos", type: "university", country: "Nigeria", website: "https://unilag.edu.ng" },
+        { name: "University of Ibadan", type: "university", country: "Nigeria", website: "https://ui.edu.ng" },
+        { name: "Ahmadu Bello University", type: "university", country: "Nigeria", website: "https://abu.edu.ng" },
+        { name: "University of Nigeria, Nsukka", type: "university", country: "Nigeria", website: "https://unn.edu.ng" },
+        { name: "Obafemi Awolowo University", type: "university", country: "Nigeria", website: "https://oauife.edu.ng" },
+        { name: "University of Ilorin", type: "university", country: "Nigeria", website: "https://unilorin.edu.ng" },
+        { name: "Lagos State University", type: "university", country: "Nigeria", website: "https://lasu.edu.ng" },
+        { name: "Covenant University", type: "university", country: "Nigeria", website: "https://covenantuniversity.edu.ng" }
+      ];
+
+      const institutions = [];
+      for (const uni of nigerianUniversities) {
+        const institution = await storage.createInstitution(uni);
+        institutions.push(institution);
+      }
+
+      // Create common programmes for each university
+      const commonProgrammes = [
+        "Computer Science", "Software Engineering", "Information Technology", "Electrical Engineering",
+        "Mechanical Engineering", "Civil Engineering", "Medicine", "Pharmacy", "Law", "Business Administration",
+        "Economics", "Accounting", "Mass Communication", "English Literature", "Mathematics", "Physics",
+        "Chemistry", "Biology", "Psychology", "Political Science"
+      ];
+
+      let programmesCreated = 0;
+      for (const institution of institutions) {
+        for (const programmeName of commonProgrammes) {
+          await storage.createProgramme({
+            name: programmeName,
+            institutionId: institution.id,
+            description: `${programmeName} programme at ${institution.name}`
+          });
+          programmesCreated++;
+        }
+      }
+
+      res.json({ 
+        message: "Nigerian universities and programmes seeded successfully",
+        institutions: institutions.length,
+        programmes: programmesCreated
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to seed data" });
+    }
+  });
+
   // Course routes
   app.get("/api/courses", requireAuth, async (req, res) => {
     try {
@@ -128,15 +225,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      // Validate request body
+      const validationResult = contentUploadSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request data", 
+          errors: validationResult.error.errors 
+        });
+      }
+
+      const validatedData = validationResult.data;
+
       const contentData = {
-        title: req.body.title,
-        description: req.body.description,
-        type: req.body.type,
+        title: validatedData.title,
+        description: validatedData.description || null,
+        type: validatedData.type,
         filePath: req.file.path,
         fileSize: req.file.size,
         uploadedBy: req.user!.id,
         courseId: req.body.courseId || null,
-        isPublic: req.body.isPublic !== 'false'
+        institutionId: validatedData.institutionId || null,
+        programmeId: validatedData.programmeId || null,
+        isPublic: validatedData.isPublic
       };
 
       const content = await storage.createContent(contentData);
@@ -151,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(content);
     } catch (error) {
+      console.error('Content upload error:', error);
       res.status(500).json({ message: "Failed to upload content" });
     }
   });
@@ -162,6 +273,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Rating submitted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to submit rating" });
+    }
+  });
+
+  // Additional content routes for Note Library
+  app.get("/api/content/my-notes", requireAuth, async (req, res) => {
+    try {
+      const content = await storage.getUserContent(req.user!.id);
+      res.json(content);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user content" });
+    }
+  });
+
+  app.get("/api/content/public", requireAuth, async (req, res) => {
+    try {
+      const content = await storage.getPublicContent(req.query);
+      res.json(content);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch public content" });
+    }
+  });
+
+  app.put("/api/content/:contentId", requireAuth, async (req, res) => {
+    try {
+      const contentId = req.params.contentId;
+      
+      // Validate content ID format
+      if (!contentId || typeof contentId !== 'string') {
+        return res.status(400).json({ message: "Invalid content ID" });
+      }
+      
+      // Verify user owns the content
+      const existingContent = await storage.getContentById(contentId);
+      if (!existingContent || existingContent.uploadedBy !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Validate request body
+      const validationResult = contentUpdateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request data", 
+          errors: validationResult.error.errors 
+        });
+      }
+
+      const validatedData = validationResult.data;
+      const updatedContent = await storage.updateContent(contentId, validatedData);
+      res.json(updatedContent);
+    } catch (error) {
+      console.error('Content update error:', error);
+      res.status(500).json({ message: "Failed to update content" });
+    }
+  });
+
+  app.delete("/api/content/:contentId", requireAuth, async (req, res) => {
+    try {
+      const contentId = req.params.contentId;
+      
+      // Verify user owns the content
+      const existingContent = await storage.getContentById(contentId);
+      if (!existingContent || existingContent.uploadedBy !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteContent(contentId);
+      
+      // Delete the physical file
+      if (existingContent.filePath && fs.existsSync(existingContent.filePath)) {
+        fs.unlinkSync(existingContent.filePath);
+      }
+      
+      res.json({ message: "Content deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete content" });
     }
   });
 
