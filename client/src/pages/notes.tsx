@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Image, Download, Star, Eye, Calendar, Filter } from "lucide-react";
+import { Upload, FileText, Image, Download, Star, Eye, Calendar, Filter, Edit, Trash2, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Notes() {
   const { toast } = useToast();
@@ -24,12 +25,36 @@ export default function Notes() {
     description: "",
     type: "pdf" as const,
     courseId: "",
+    institutionId: "",
+    programmeId: "",
     isPublic: true,
   });
+  const [editingNote, setEditingNote] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: content = [], isLoading } = useQuery({
     queryKey: ["/api/content"],
     queryFn: () => api.getContent(),
+  });
+
+  const { data: myNotes = [], isLoading: isLoadingMyNotes } = useQuery({
+    queryKey: ["/api/content/my-notes"],
+    queryFn: () => fetch("/api/content/my-notes").then(res => res.json()),
+  });
+
+  const { data: publicNotes = [], isLoading: isLoadingPublic } = useQuery({
+    queryKey: ["/api/content/public"],
+    queryFn: () => fetch("/api/content/public").then(res => res.json()),
+  });
+
+  const { data: institutions = [] } = useQuery({
+    queryKey: ["/api/institutions"],
+    queryFn: () => fetch("/api/institutions").then(res => res.json()),
+  });
+
+  const { data: programmes = [] } = useQuery({
+    queryKey: ["/api/programmes"],
+    queryFn: () => fetch("/api/programmes").then(res => res.json()),
   });
 
   const { data: courses = [] } = useQuery({
@@ -39,7 +64,15 @@ export default function Notes() {
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      return api.uploadContent(formData);
+      const response = await fetch('/api/content', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+      return response.json();
     },
     onSuccess: (newContent) => {
       queryClient.invalidateQueries({ queryKey: ["/api/content"] });
@@ -50,6 +83,8 @@ export default function Notes() {
         description: "",
         type: "pdf",
         courseId: "",
+        institutionId: "",
+        programmeId: "",
         isPublic: true,
       });
       toast({
@@ -60,6 +95,68 @@ export default function Notes() {
     onError: (error) => {
       toast({
         title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await fetch(`/api/content/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Update failed');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/my-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/public"] });
+      setEditDialogOpen(false);
+      setEditingNote(null);
+      toast({
+        title: "Success!",
+        description: "Note updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/content/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Delete failed');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/my-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/public"] });
+      toast({
+        title: "Success!",
+        description: "Note deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
         description: error.message,
         variant: "destructive",
       });
@@ -90,15 +187,63 @@ export default function Notes() {
       return;
     }
 
+    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+    const allowedTypes = ['pdf', 'pptx', 'doc', 'docx'];
+    if (!allowedTypes.includes(fileExtension || '')) {
+      toast({
+        title: "Invalid file type",
+        description: "Only PDF, PPTX, DOC, and DOCX files are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('title', uploadData.title);
     formData.append('description', uploadData.description);
-    formData.append('type', uploadData.type);
+    formData.append('type', fileExtension || 'pdf');
     formData.append('courseId', uploadData.courseId);
+    formData.append('institutionId', uploadData.institutionId);
+    formData.append('programmeId', uploadData.programmeId);
     formData.append('isPublic', uploadData.isPublic.toString());
 
     uploadMutation.mutate(formData);
+  };
+
+  const handleEdit = (note: any) => {
+    setEditingNote(note);
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this note?')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleDownload = (filePath: string, title: string) => {
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = `/api/content/download/${encodeURIComponent(filePath.split('/').pop() || '')}`;
+    link.download = title;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleEditSubmit = () => {
+    if (!editingNote) return;
+    
+    const updateData = {
+      title: editingNote.title,
+      description: editingNote.description,
+      institutionId: editingNote.institutionId,
+      programmeId: editingNote.programmeId,
+      isPublic: editingNote.isPublic
+    };
+    
+    editMutation.mutate({ id: editingNote.id, data: updateData });
   };
 
   const getFileIcon = (type: string) => {
@@ -165,7 +310,7 @@ export default function Notes() {
                   <Input
                     id="file-upload"
                     type="file"
-                    accept=".pdf,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+                    accept=".pdf,.pptx,.doc,.docx"
                     onChange={handleFileSelect}
                     data-testid="input-file-upload"
                   />
@@ -196,6 +341,49 @@ export default function Notes() {
                     placeholder="Describe what this material covers"
                     data-testid="textarea-description"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="university">University</Label>
+                  <Select 
+                    value={uploadData.institutionId}
+                    onValueChange={(value) => setUploadData(prev => ({ ...prev, institutionId: value, programmeId: "" }))}
+                  >
+                    <SelectTrigger data-testid="select-university">
+                      <SelectValue placeholder="Select a university" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No specific university</SelectItem>
+                      {institutions.map((institution: any) => (
+                        <SelectItem key={institution.id} value={institution.id}>
+                          {institution.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="programme">Programme</Label>
+                  <Select 
+                    value={uploadData.programmeId}
+                    onValueChange={(value) => setUploadData(prev => ({ ...prev, programmeId: value }))}
+                    disabled={!uploadData.institutionId}
+                  >
+                    <SelectTrigger data-testid="select-programme">
+                      <SelectValue placeholder={uploadData.institutionId ? "Select a programme" : "Select university first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No specific programme</SelectItem>
+                      {programmes
+                        .filter((programme: any) => programme.institutionId === uploadData.institutionId)
+                        .map((programme: any) => (
+                          <SelectItem key={programme.id} value={programme.id}>
+                            {programme.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -248,6 +436,116 @@ export default function Notes() {
                   </Button>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Edit Note</DialogTitle>
+                <DialogDescription>
+                  Update your note information and settings.
+                </DialogDescription>
+              </DialogHeader>
+              {editingNote && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-title">Title</Label>
+                    <Input
+                      id="edit-title"
+                      value={editingNote.title}
+                      onChange={(e) => setEditingNote((prev: any) => ({ ...prev, title: e.target.value }))}
+                      placeholder="Enter a descriptive title"
+                      data-testid="input-edit-title"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-description">Description (optional)</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editingNote.description || ""}
+                      onChange={(e) => setEditingNote((prev: any) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Describe what this material covers"
+                      data-testid="textarea-edit-description"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-university">University</Label>
+                    <Select 
+                      value={editingNote.institutionId || ""}
+                      onValueChange={(value) => setEditingNote((prev: any) => ({ ...prev, institutionId: value, programmeId: "" }))}
+                    >
+                      <SelectTrigger data-testid="select-edit-university">
+                        <SelectValue placeholder="Select a university" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No specific university</SelectItem>
+                        {institutions.map((institution: any) => (
+                          <SelectItem key={institution.id} value={institution.id}>
+                            {institution.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-programme">Programme</Label>
+                    <Select 
+                      value={editingNote.programmeId || ""}
+                      onValueChange={(value) => setEditingNote((prev: any) => ({ ...prev, programmeId: value }))}
+                      disabled={!editingNote.institutionId}
+                    >
+                      <SelectTrigger data-testid="select-edit-programme">
+                        <SelectValue placeholder={editingNote.institutionId ? "Select a programme" : "Select university first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No specific programme</SelectItem>
+                        {programmes
+                          .filter((programme: any) => programme.institutionId === editingNote.institutionId)
+                          .map((programme: any) => (
+                            <SelectItem key={programme.id} value={programme.id}>
+                              {programme.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="edit-public"
+                      checked={editingNote.isPublic}
+                      onChange={(e) => setEditingNote((prev: any) => ({ ...prev, isPublic: e.target.checked }))}
+                      className="rounded border border-input"
+                    />
+                    <Label htmlFor="edit-public" className="text-sm">
+                      Make this publicly available to other students
+                    </Label>
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditDialogOpen(false)}
+                      data-testid="button-cancel-edit"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleEditSubmit}
+                      disabled={editMutation.isPending}
+                      data-testid="button-confirm-edit"
+                    >
+                      {editMutation.isPending ? "Updating..." : "Update"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -352,9 +650,131 @@ export default function Notes() {
           </TabsContent>
 
           <TabsContent value="my-notes" className="space-y-4">
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Filter functionality for user's own notes would be implemented here.</p>
-            </div>
+            {isLoadingMyNotes ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader>
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                      <div className="h-3 bg-muted rounded w-1/2"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-20 bg-muted rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : myNotes.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myNotes.map((item: any) => (
+                  <Card key={item.id} className="card-hover" data-testid={`my-note-card-${item.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2 flex-1">
+                          {getFileIcon(item.type)}
+                          <CardTitle className="text-sm font-medium line-clamp-1">
+                            {item.title}
+                          </CardTitle>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs">
+                            {item.type.toUpperCase()}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                data-testid={`button-note-menu-${item.id}`}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => handleEdit(item)}
+                                data-testid={`button-edit-${item.id}`}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDownload(item.filePath, item.title)}
+                                data-testid={`button-download-${item.id}`}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDelete(item.id)}
+                                className="text-destructive"
+                                data-testid={`button-delete-${item.id}`}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-3">
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center space-x-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>{formatDate(item.createdAt)}</span>
+                        </div>
+                        {item.fileSize && (
+                          <span>{formatFileSize(item.fileSize)}</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3 text-xs text-muted-foreground">
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-3 h-3" />
+                            <span>{item.rating || 0}/5</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Download className="w-3 h-3" />
+                            <span>{item.downloadCount}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Eye className="w-3 h-3" />
+                            <span>{item.ratingCount}</span>
+                          </div>
+                        </div>
+                        
+                        <Badge variant={item.isPublic ? "default" : "secondary"} className="text-xs">
+                          {item.isPublic ? "Public" : "Private"}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No notes uploaded yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Upload your first note to start building your personal study library.
+                  </p>
+                  <Button onClick={() => setUploadDialogOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Your First Note
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="public" className="space-y-4">
