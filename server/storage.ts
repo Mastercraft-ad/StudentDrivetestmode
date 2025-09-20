@@ -2,6 +2,7 @@ import {
   users, 
   userProfiles,
   institutions,
+  programmes,
   courses,
   userCourses,
   content,
@@ -18,6 +19,8 @@ import {
   type InsertUserProfile,
   type Institution,
   type InsertInstitution,
+  type Programme,
+  type InsertProgramme,
   type Course,
   type InsertCourse,
   type Content,
@@ -56,6 +59,12 @@ export interface IStorage {
   getInstitution(id: string): Promise<Institution | undefined>;
   createInstitution(institution: InsertInstitution): Promise<Institution>;
   
+  // Programme methods
+  getProgrammes(): Promise<Programme[]>;
+  getProgrammesByInstitution(institutionId: string): Promise<Programme[]>;
+  getProgramme(id: string): Promise<Programme | undefined>;
+  createProgramme(programme: InsertProgramme): Promise<Programme>;
+  
   // Course methods
   getCourses(): Promise<Course[]>;
   getUserCourses(userId: string): Promise<any[]>;
@@ -64,8 +73,12 @@ export interface IStorage {
   
   // Content methods
   getContent(filters?: any): Promise<Content[]>;
+  getUserContent(userId: string): Promise<Content[]>;
+  getPublicContent(filters?: any): Promise<Content[]>;
   getContentById(id: string): Promise<Content | undefined>;
   createContent(content: InsertContent): Promise<Content>;
+  updateContent(id: string, content: Partial<InsertContent>): Promise<Content>;
+  deleteContent(id: string): Promise<void>;
   rateContent(contentId: string, userId: string, rating: number, review?: string): Promise<void>;
   
   // Assessment methods
@@ -179,6 +192,30 @@ export class DatabaseStorage implements IStorage {
     return newInstitution;
   }
 
+  // Programme methods
+  async getProgrammes(): Promise<Programme[]> {
+    return await db.select().from(programmes).orderBy(programmes.name);
+  }
+
+  async getProgrammesByInstitution(institutionId: string): Promise<Programme[]> {
+    return await db.select().from(programmes)
+      .where(eq(programmes.institutionId, institutionId))
+      .orderBy(programmes.name);
+  }
+
+  async getProgramme(id: string): Promise<Programme | undefined> {
+    const [programme] = await db.select().from(programmes).where(eq(programmes.id, id));
+    return programme || undefined;
+  }
+
+  async createProgramme(programme: InsertProgramme): Promise<Programme> {
+    const [newProgramme] = await db
+      .insert(programmes)
+      .values(programme)
+      .returning();
+    return newProgramme;
+  }
+
   async getCourses(): Promise<Course[]> {
     return await db.select().from(courses).orderBy(courses.name);
   }
@@ -221,12 +258,47 @@ export class DatabaseStorage implements IStorage {
     return contentItem || undefined;
   }
 
+  async getUserContent(userId: string): Promise<Content[]> {
+    return await db.select().from(content)
+      .where(eq(content.uploadedBy, userId))
+      .orderBy(desc(content.createdAt));
+  }
+
+  async getPublicContent(filters?: any): Promise<Content[]> {
+    const conditions = [eq(content.isPublic, true)];
+    
+    if (filters?.institutionId) {
+      conditions.push(eq(content.institutionId, filters.institutionId));
+    }
+    
+    if (filters?.programmeId) {
+      conditions.push(eq(content.programmeId, filters.programmeId));
+    }
+    
+    return await db.select().from(content)
+      .where(and(...conditions))
+      .orderBy(desc(content.createdAt));
+  }
+
   async createContent(contentData: InsertContent): Promise<Content> {
     const [newContent] = await db
       .insert(content)
       .values(contentData)
       .returning();
     return newContent;
+  }
+
+  async updateContent(id: string, contentData: Partial<InsertContent>): Promise<Content> {
+    const [updatedContent] = await db
+      .update(content)
+      .set({ ...contentData, updatedAt: new Date() })
+      .where(eq(content.id, id))
+      .returning();
+    return updatedContent;
+  }
+
+  async deleteContent(id: string): Promise<void> {
+    await db.delete(content).where(eq(content.id, id));
   }
 
   async rateContent(contentId: string, userId: string, rating: number, review?: string): Promise<void> {

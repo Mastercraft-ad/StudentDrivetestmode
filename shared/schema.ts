@@ -8,7 +8,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["student", "institution", "admin"]);
 export const subscriptionTierEnum = pgEnum("subscription_tier", ["free", "premium", "institution"]);
 export const assessmentTypeEnum = pgEnum("assessment_type", ["quiz", "test", "exam", "flashcard"]);
-export const contentTypeEnum = pgEnum("content_type", ["pdf", "ppt", "image", "video", "text"]);
+export const contentTypeEnum = pgEnum("content_type", ["pdf", "ppt", "pptx", "doc", "docx", "image", "video", "text"]);
 
 // Users table
 export const users = pgTable("users", {
@@ -31,6 +31,15 @@ export const institutions = pgTable("institutions", {
   type: text("type").notNull(), // university, college, school
   country: text("country").notNull(),
   website: text("website"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Programmes table
+export const programmes = pgTable("programmes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // e.g., Software Engineering, Medicine, Law
+  institutionId: varchar("institution_id").references(() => institutions.id),
+  description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -78,6 +87,8 @@ export const content = pgTable("content", {
   fileSize: integer("file_size"),
   uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
   courseId: varchar("course_id").references(() => courses.id),
+  institutionId: varchar("institution_id").references(() => institutions.id),
+  programmeId: varchar("programme_id").references(() => programmes.id),
   isPublic: boolean("is_public").default(true),
   rating: integer("rating").default(0), // Average rating
   ratingCount: integer("rating_count").default(0),
@@ -186,6 +197,16 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 export const institutionsRelations = relations(institutions, ({ many }) => ({
   courses: many(courses),
   userProfiles: many(userProfiles),
+  programmes: many(programmes),
+  content: many(content),
+}));
+
+export const programmesRelations = relations(programmes, ({ one, many }) => ({
+  institution: one(institutions, {
+    fields: [programmes.institutionId],
+    references: [institutions.id],
+  }),
+  content: many(content),
 }));
 
 export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
@@ -217,6 +238,14 @@ export const contentRelations = relations(content, ({ one, many }) => ({
   course: one(courses, {
     fields: [content.courseId],
     references: [courses.id],
+  }),
+  institution: one(institutions, {
+    fields: [content.institutionId],
+    references: [institutions.id],
+  }),
+  programme: one(programmes, {
+    fields: [content.programmeId],
+    references: [programmes.id],
   }),
   ratings: many(contentRatings),
   assessments: many(assessments),
@@ -256,6 +285,11 @@ export const insertInstitutionSchema = createInsertSchema(institutions).omit({
   createdAt: true,
 });
 
+export const insertProgrammeSchema = createInsertSchema(programmes).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCourseSchema = createInsertSchema(courses).omit({
   id: true,
   createdAt: true,
@@ -287,6 +321,8 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type Institution = typeof institutions.$inferSelect;
 export type InsertInstitution = z.infer<typeof insertInstitutionSchema>;
+export type Programme = typeof programmes.$inferSelect;
+export type InsertProgramme = z.infer<typeof insertProgrammeSchema>;
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
 export type Content = typeof content.$inferSelect;
