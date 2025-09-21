@@ -6,11 +6,12 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 // Fix SSL certificate issues and prepared statement issues in development
 if (process.env.NODE_ENV === 'development') {
-  neonConfig.fetchConnectionCache = true;
   neonConfig.poolQueryViaFetch = true;
   neonConfig.pipelineConnect = false;
   neonConfig.useSecureWebSocket = false;
 }
+
+// Additional configuration to handle prepared statements with UUID generation
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -18,5 +19,7 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL
+});
 export const db = drizzle(pool, { schema });
